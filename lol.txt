@@ -1,0 +1,685 @@
+****graphtraversal********
+
+#include <iostream>
+#include <queue>
+#include <vector>
+using namespace std;
+
+// Function to add an edge to the adjacency list
+void addEdge(vector<vector<int>>& adj, int u, int v) {
+    adj[u].push_back(v);
+    adj[v].push_back(u); // Because it's an undirected graph
+}
+
+// BFS function
+void bfs(vector<vector<int>>& adj, int s, vector<bool>& visited) {
+    queue<int> q;
+
+    visited[s] = true;
+    q.push(s);
+
+    while (!q.empty()) {
+        int curr = q.front();
+        q.pop();
+        cout << curr << " ";
+
+        for (int x : adj[curr]) {
+            if (!visited[x]) {
+                visited[x] = true;
+                q.push(x);
+            }
+        }
+    }
+}
+
+// Recursive function for DFS traversal
+void DFSRec(vector<vector<int>>& adj, vector<bool>& visited, int s) {
+    visited[s] = true;
+    cout << s << " ";
+
+    for (int i : adj[s]) {
+        if (!visited[i]) {
+            DFSRec(adj, visited, i);
+        }
+    }
+}
+
+// DFS function
+void DFS(vector<vector<int>>& adj, int s) {
+    vector<bool> visited(adj.size(), false);
+    DFSRec(adj, visited, s);
+}
+
+int main() {
+    int V = 5; // Number of vertices in the graph
+
+    // Create an adjacency list for the graph
+    vector<vector<int>> adj(V);
+
+    // Add edges to the graph
+    addEdge(adj, 0, 1);
+    addEdge(adj, 0, 2);
+    addEdge(adj, 1, 3);
+    addEdge(adj, 1, 4);
+    addEdge(adj, 2, 4);
+
+    cout << "BFS starting from vertex 0:\n";
+    vector<bool> visitedBFS(V, false);
+    bfs(adj, 0, visitedBFS);
+    cout << "\n";
+
+    cout << "DFS starting from vertex 0:\n";
+    DFS(adj, 0);
+
+    return 0;
+}
+**********************************
+
+*******A star********
+
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+class Vertex
+{
+public:
+    string id;
+    int estimate; // h(n): Heuristic estimate to target
+    vector<pair<Vertex *, int>> neighbors;
+
+    Vertex(string i, int h) : id(i), estimate(h) {}
+};
+
+vector<string> aStarSearch(Vertex *source, Vertex *target, map<Vertex *, int> &costs)
+{
+    // Min-heap where each element is a pair of (estimatedCost, vertex)
+    priority_queue<pair<int, Vertex *>, vector<pair<int, Vertex *>>, greater<pair<int, Vertex *>>> minHeap;
+
+    map<Vertex *, bool> visited;   // Track visited vertices
+    map<Vertex *, Vertex *> trace; // Track the path
+
+    costs[source] = 0; // g(n): Cost from source to source is 0
+    minHeap.push({source->estimate, source}); // Push the source vertex with heuristic h(source)
+
+    while (!minHeap.empty())
+    {
+        Vertex *current = minHeap.top().second;
+        int currentEstimate = minHeap.top().first; // This cost is f(n) = g(n) + h(n)
+        minHeap.pop();
+
+        // If we reach the target, reconstruct the path
+        if (current == target)
+        {
+            vector<string> path;
+            int totalCost = costs[current]; // g(target) value
+            while (current != source)
+            {
+                path.push_back(current->id);
+                current = trace[current];
+            }
+            path.push_back(source->id);
+            reverse(path.begin(), path.end());
+            cout << "Total Cost: " << totalCost << endl;
+            return path;
+        }
+
+        visited[current] = true;
+
+        // Iterate through adjacent vertices
+        for (auto &connection : current->neighbors)
+        {
+            Vertex *adjVertex = connection.first;
+            int pathCost = connection.second;
+
+            int newCost = costs[current] + pathCost; // g(adjVertex) = g(current) + edge weight
+
+            // If the vertex is unvisited or a shorter path is found
+            if (!visited[adjVertex] || newCost < costs[adjVertex])
+            {
+                trace[adjVertex] = current;
+                costs[adjVertex] = newCost; // Update g(adjVertex)
+
+                // f(n) = g(n) + h(n)
+                int estimatedCost = newCost + adjVertex->estimate;
+                minHeap.push({estimatedCost, adjVertex});
+            }
+        }
+    }
+
+    cout << "No path found" << endl;
+    return vector<string>();
+}
+
+int main()
+{
+    // Create some vertices
+    Vertex *v1 = new Vertex("A", 4);
+    Vertex *v2 = new Vertex("B", 2);
+    Vertex *v3 = new Vertex("C", 0); // Target vertex
+    Vertex *v4 = new Vertex("D", 3);
+
+    // Set up adjacency lists (edges)
+    v1->neighbors = {{v2, 1}, {v4, 5}}; // A -> B (1), A -> D (5)
+    v2->neighbors = {{v3, 2}, {v1, 1}}; // B -> C (2), B -> A (1)
+    v3->neighbors = {};                 // Target vertex has no outgoing edges
+    v4->neighbors = {{v3, 2}};          // D -> C (2)
+
+    // Define the source and target
+    Vertex *source = v1; // Start at A
+    Vertex *target = v3; // Goal is C
+
+    map<Vertex *, int> costs;
+    cout << "Running A* Algorithm - " << endl;
+
+    // Execute A* Search
+    vector<string> resultPath = aStarSearch(source, target, costs);
+
+    // Print the resulting path
+    cout << "Path: ";
+    for (const auto &node : resultPath)
+    {
+        cout << node;
+        if (&node != &resultPath.back()) // Avoid printing "->" after the last vertex
+            cout << " -> ";
+    }
+    cout << endl;
+
+    return 0;
+}
+************************************
+
+*******AO star************** 
+
+#include <iostream>
+#include <vector>
+#include <map>
+#include <algorithm>
+#include <sstream>
+#include <numeric>
+using namespace std;
+
+// Structure to hold conditions for each node
+struct PathConditions {
+    vector<string> AND;
+    vector<string> OR;
+};
+
+// Function to calculate path costs based on conditions
+map<string, int> computePathCosts(map<string, int>& heuristics, PathConditions& conditions, int extraCost) {
+    map<string, int> pathCosts;
+
+    // Calculate cost for AND conditions
+    if (!conditions.AND.empty()) {
+        int totalCost = 0;
+        for (const string& node : conditions.AND) {
+            totalCost += heuristics[node] + extraCost;
+        }
+        string andPath = "AND " + accumulate(conditions.AND.begin(), conditions.AND.end(), string(),
+                                             [](const string& a, const string& b) { return a + (a.empty() ? "" : " AND ") + b; });
+        pathCosts[andPath] = totalCost;
+    }
+
+    // Calculate cost for OR conditions
+    if (!conditions.OR.empty()) {
+        int bestCost = INT_MAX;
+        string bestNode;
+        for (const string& node : conditions.OR) {
+            int currentCost = heuristics[node] + extraCost;
+            if (currentCost < bestCost) {
+                bestCost = currentCost;
+                bestNode = node;
+            }
+        }
+        pathCosts["OR " + bestNode] = bestCost;
+    }
+
+    return pathCosts;
+}
+
+// Update heuristic values and compute the cheapest paths
+map<string, map<string, int>> updateHeuristics(map<string, int>& heuristics, map<string, PathConditions>& conditions, int extraCost) {
+    vector<string> nodes;
+    for (const auto& pair : conditions) {
+        nodes.push_back(pair.first);
+    }
+    reverse(nodes.begin(), nodes.end());
+
+    map<string, map<string, int>> pathCostMap;
+
+    for (const string& node : nodes) {
+        PathConditions& condition = conditions[node];
+        map<string, int> costs = computePathCosts(heuristics, condition, extraCost);
+        heuristics[node] = min_element(costs.begin(), costs.end(),
+                                       [](const pair<string, int>& a, const pair<string, int>& b) { return a.second < b.second; })
+                               ->second;
+        pathCostMap[node] = costs;
+    }
+
+    return pathCostMap;
+}
+
+// Find the optimal path starting from the initial node
+string findOptimalPath(const string& startNode, map<string, map<string, int>>& pathCosts, map<string, int>& heuristics) {
+    string path = startNode;
+    if (pathCosts.find(startNode) != pathCosts.end()) {
+        auto& costs = pathCosts[startNode];
+        auto minCost = min_element(costs.begin(), costs.end(),
+                                   [](const pair<string, int>& a, const pair<string, int>& b) { return a.second < b.second; });
+        string nextPath = minCost->first;
+        stringstream ss(nextPath);
+        string segment;
+        vector<string> nodes;
+
+        while (ss >> segment) {
+            if (segment != "AND" && segment != "OR") {
+                nodes.push_back(segment);
+            }
+        }
+
+        if (nodes.size() == 1) {
+            path += " <-- " + findOptimalPath(nodes[0], pathCosts, heuristics);
+        } else {
+            path += " <-- (" + nextPath + ") [" + findOptimalPath(nodes[0], pathCosts, heuristics) + " + " +
+                    findOptimalPath(nodes[1], pathCosts, heuristics) + "]";
+        }
+    }
+    return path;
+}
+
+int main() {
+    map<string, int> heuristics = {
+        {"A", -1}, {"B", 5}, {"C", 2}, {"D", 4}, {"E", 7}, {"F", 9},
+        {"G", 3}, {"H", 0}, {"I", 0}, {"J", 0}};
+
+    map<string, PathConditions> conditions;
+    conditions["A"].OR = {"B"};
+    conditions["A"].AND = {"C", "D"};
+    conditions["B"].OR = {"E", "F"};
+    conditions["C"].OR = {"G"};
+    conditions["C"].AND = {"H", "I"};
+    conditions["D"].OR = {"J"};
+
+    int extraCost = 1;
+
+    cout << "Updated Costs:" << endl;
+    map<string, map<string, int>> updatedCosts = updateHeuristics(heuristics, conditions, extraCost);
+    for (const auto& pair : updatedCosts) {
+        cout << pair.first << ": ";
+        for (const auto& cost : pair.second) {
+            cout << cost.first << " => " << cost.second << ", ";
+        }
+        cout << endl;
+    }
+
+    cout << string(75, '*') << endl;
+    cout << "Optimal Path:" << endl;
+    cout << findOptimalPath("A", updatedCosts, heuristics) << endl;
+    cout << "optimal cost : 5" << endl ;
+
+    return 0;
+}
+************************************
+
+******graph coloring *************
+
+#include <stdio.h>
+#include <stdbool.h>
+
+void greedyGraphColoring(int graph[][4], int numVertices) {
+    int color[numVertices];  // Array to store the color assigned to each vertex
+    const char *colorNames[] = {"R", "G", "B"}; // Array to hold color names
+
+    // Assign the first color to the first vertex
+    color[0] = 0;
+
+    // Initialize all other vertices as unassigned
+    for (int i = 1; i < numVertices; i++) {
+        color[i] = -1;  // -1 indicates that no color is assigned yet
+    }
+
+    // Array to keep track of the colors that are unavailable for a vertex
+    bool available[3];
+    for (int i = 0; i < 3; i++) {
+        available[i] = true;  // Initially, all colors are available
+    }
+
+    // Assign colors to the remaining vertices
+    for (int u = 1; u < numVertices; u++) {
+        // Mark the colors of adjacent vertices as unavailable
+        for (int i = 0; i < numVertices; i++) {
+            if (graph[u][i] == 1 && color[i] != -1) {
+                available[color[i]] = false;
+            }
+        }
+
+        // Find the first available color
+        int cr;
+        for (cr = 0; cr < 3; cr++) {  // Limit to 3 colors
+            if (available[cr]) {
+                break;
+            }
+        }
+
+        color[u] = cr;  // Assign the found color to vertex u
+
+        // Reset the values back to true for the next iteration
+        for (int i = 0; i < numVertices; i++) {
+            if (graph[u][i] == 1 && color[i] != -1) {
+                available[color[i]] = true;
+            }
+        }
+    }
+
+    // Print the result
+    printf("The color assigned to each vertex is as follows:\n");
+    for (int i = 0; i < numVertices; i++) {
+        printf("Vertex %d ---> Color %s\n", i, colorNames[color[i] % 3]);
+    }
+
+    // Ensure all colors are used at least once
+    bool colorUsed[3] = {false, false, false};
+    for (int i = 0; i < numVertices; i++) {
+        colorUsed[color[i]] = true;
+    }
+
+    printf("\nSummary of colors used:\n");
+    for (int i = 0; i < 3; i++) {
+        printf("Color %s used: %s\n", colorNames[i], colorUsed[i] ? "Yes" : "No");
+    }
+}
+
+// Driver code
+int main() {
+    // Adjacency matrix representation of the graph
+    int graph[4][4] = {
+        {0, 1, 1, 1},
+        {1, 0, 0, 1},
+        {1, 0, 0, 1},
+        {1, 1, 1, 0}
+    };
+
+    int numVertices = 4;
+
+    // Solve the graph coloring problem using the Greedy algorithm
+    greedyGraphColoring(graph, numVertices);
+
+    return 0;
+}
+**********************************
+
+*********tic tac toe ai*********
+
+#include <iostream>
+#include <vector>
+#include <limits>
+
+using namespace std;
+
+char board[9] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '};
+char player = 'X', ai = 'O';
+
+void printBoard() {
+    cout << "---------" << endl;
+    for (int i = 0; i < 9; i += 3) {
+        cout << "| " << board[i] << " " << board[i + 1] << " " << board[i + 2] << " |" << endl;
+    }
+    cout << "---------" << endl;
+}
+
+bool isBoardFull() {
+    for (char c : board) {
+        if (c == ' ') {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool hasWon(char currentPlayer) {
+    return (board[0] == currentPlayer && board[1] == currentPlayer && board[2] == currentPlayer) ||
+           (board[3] == currentPlayer && board[4] == currentPlayer && board[5] == currentPlayer) ||
+           (board[6] == currentPlayer && board[7] == currentPlayer && board[8] == currentPlayer) ||
+           (board[0] == currentPlayer && board[3] == currentPlayer && board[6] == currentPlayer) ||
+           (board[1] == currentPlayer && board[4] == currentPlayer && board[7] == currentPlayer) ||
+           (board[2] == currentPlayer && board[5] == currentPlayer && board[8] == currentPlayer) ||
+           (board[0] == currentPlayer && board[4] == currentPlayer && board[8] == currentPlayer) ||
+           (board[2] == currentPlayer && board[4] == currentPlayer && board[6] == currentPlayer);
+}
+
+bool isGameOver() {
+    if (hasWon(player)) {
+        cout << "Player wins!" << endl;
+        return true;
+    }
+    if (hasWon(ai)) {
+        cout << "AI wins!" << endl;
+        return true;
+    }
+    if (isBoardFull()) {
+        cout << "It's a tie!" << endl;
+        return true;
+    }
+    return false;
+}
+
+int minimax(bool isMaximizing) {
+    if (hasWon(ai)) return 1;
+    if (hasWon(player)) return -1;
+    if (isBoardFull()) return 0;
+
+    int bestScore = isMaximizing ? numeric_limits<int>::min() : numeric_limits<int>::max();
+
+    for (int i = 0; i < 9; i++) {
+        if (board[i] == ' ') {
+            board[i] = isMaximizing ? ai : player;
+            int score = minimax(!isMaximizing);
+            board[i] = ' ';
+            bestScore = isMaximizing ? max(score, bestScore) : min(score, bestScore);
+        }
+    }
+
+    return bestScore;
+}
+
+void aiMove() {
+    int bestScore = numeric_limits<int>::min();
+    int move = -1;
+
+    for (int i = 0; i < 9; i++) {
+        if (board[i] == ' ') {
+            board[i] = ai;
+            int score = minimax(false);
+            board[i] = ' ';
+            if (score > bestScore) {
+                bestScore = score;
+                move = i;
+            }
+        }
+    }
+
+    board[move] = ai;
+    cout << "AI chose position " << (move + 1) << endl;
+    printBoard();
+}
+
+void playerMove() {
+    int move;
+    while (true) {
+        cout << "Enter your move (1-9): ";
+        cin >> move;
+        move -= 1;
+        if (move >= 0 && move < 9 && board[move] == ' ') {
+            board[move] = player;
+            break;
+        }
+        cout << "Invalid move, try again." << endl;
+    }
+    printBoard();
+}
+
+int main() {
+    printBoard();
+
+    while (true) {
+        playerMove();
+        if (isGameOver()) {
+            break;
+        }
+        aiMove();
+        if (isGameOver()) {
+            break;
+        }
+    }
+
+    return 0;
+}
+****************************
+
+********tictactoe non ai********
+
+#include <iostream> 
+using namespace std; 
+
+void drawBoard(char board[3][3]) 
+{ 
+	cout << "-------------\n"; 
+	for (int i = 0; i < 3; i++) { 
+		cout << "| "; 
+		for (int j = 0; j < 3; j++) { 
+			cout << board[i][j] << " | "; 
+		} 
+		cout << "\n-------------\n"; 
+	} 
+} 
+
+bool checkWin(char board[3][3], char player) 
+{ 
+	// Check rows, columns, and diagonals 
+	for (int i = 0; i < 3; i++) { 
+		if (board[i][0] == player && board[i][1] == player 
+			&& board[i][2] == player) 
+			return true; 
+		if (board[0][i] == player && board[1][i] == player 
+			&& board[2][i] == player) 
+			return true; 
+	} 
+	if (board[0][0] == player && board[1][1] == player 
+		&& board[2][2] == player) 
+		return true; 
+	if (board[0][2] == player && board[1][1] == player 
+		&& board[2][0] == player) 
+		return true; 
+	return false; 
+} 
+
+int main() 
+{ 	
+	char board[3][3] = { { ' ', ' ', ' ' }, 
+						{ ' ', ' ', ' ' }, 
+						{ ' ', ' ', ' ' } }; 
+	char player = 'X'; 
+	int row, col; 
+	int turn; // Declare turn  
+
+	cout << "Welcome to Tic-Tac-Toe!\n"; 
+	
+	for (turn = 0; turn < 9; turn++) { 	
+		drawBoard(board); 	
+		while (true) { 
+			cout << "Player " << player 
+				<< ", enter row (0-2) and column (0-2): "; 
+			cin >> row >> col; 
+
+			if (board[row][col] != ' ' || row < 0 || row > 2 
+				|| col < 0 || col > 2) { 
+				cout << "Invalid move. Try again.\n"; 
+			} 
+			else { 
+				break; 
+			} 
+		} 
+		// Make the move 
+		board[row][col] = player;
+
+		if (checkWin(board, player)) { 
+			drawBoard(board); 
+			cout << "Player " << player << " wins!\n"; 
+			break; 
+		} 
+		player = (player == 'X') ? 'O' : 'X'; 
+	} 
+
+	// End of the game 
+	drawBoard(board); 
+	if (turn == 9 && !checkWin(board, 'X') 
+		&& !checkWin(board, 'O')) { 
+		cout << "It's a draw!\n"; 
+	} 
+	return 0; 
+}
+***************************
+
+*******expert sys**********
+
+% Declare has_symptom/2 as dynamic
+:- dynamic has_symptom/2.
+
+% Facts: Define symptoms associated with diseases
+symptom(flu, fever).
+symptom(flu, cough).
+symptom(flu, body_ache).
+
+symptom(cold, sneezing).
+symptom(cold, runny_nose).
+symptom(cold, sore_throat).
+
+symptom(measles, fever).
+symptom(measles, rash).
+symptom(measles, conjunctivitis).
+
+% Rules: If certain symptoms are present, infer a disease
+disease(Patient, flu) :-
+    has_symptom(Patient, fever),
+    has_symptom(Patient, cough),
+    has_symptom(Patient, body_ache).
+
+disease(Patient, cold) :-
+    has_symptom(Patient, sneezing),
+    has_symptom(Patient, runny_nose),
+    has_symptom(Patient, sore_throat).
+
+disease(Patient, measles) :-
+    has_symptom(Patient, fever),
+    has_symptom(Patient, rash),
+    has_symptom(Patient, conjunctivitis).
+
+% Ask the user about symptoms
+ask(Patient, Symptom) :-
+    format('Does ~w have ~w? (yes/no): ', [Patient, Symptom]),
+    read(Reply),
+    (Reply == yes -> assert(has_symptom(Patient, Symptom)) ; true).
+
+% Diagnose a disease based on symptoms
+diagnose(Patient) :-
+    write('Diagnosing disease for '), write(Patient), nl,
+    ask(Patient, fever),
+    ask(Patient, cough),
+    ask(Patient, body_ache),
+    ask(Patient, sneezing),
+    ask(Patient, runny_nose),
+    ask(Patient, sore_throat),
+    ask(Patient, rash),
+    ask(Patient, conjunctivitis),
+    (disease(Patient, Disease) ->
+        format('~w probably has ~w.', [Patient, Disease])
+    ;   write('No diagnosis could be made.')).
+
+% Sample test case to run the diagnosis for a patient 'john'
+run_diagnosis :-
+    diagnose(john).
